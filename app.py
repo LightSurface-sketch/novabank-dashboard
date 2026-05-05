@@ -9,100 +9,138 @@ import matplotlib.pyplot as plt
 st.set_page_config(page_title="NovaBank Dashboard", layout="wide")
 
 # =========================
-# TITRE + CONTEXTE
+# LOAD DATA
 # =========================
 
-st.title(" NovaBank — Analyse du churn")
+file = r"C:\Users\utilisateur\Desktop\novabank\novabank_etude_de_cas_donnees.xlsx"
 
-st.markdown("###  Problème")
-st.write("Le churn a augmenté de +90% en 6 mois, en lien avec une dégradation de l’expérience digitale.")
+mensuel = pd.read_excel(file, sheet_name="mensuel")
+segment = pd.read_excel(file, sheet_name="segment")
+channel = pd.read_excel(file, sheet_name="channel")
+
+# =========================
+# CLEAN DATA
+# =========================
+
+def clean(col):
+    return col.astype(str).str.replace(",", ".").astype(float)
+
+mensuel["churn_rate_pct"] = clean(mensuel["churn_rate_pct"])
+mensuel["mobile_login_success_pct"] = clean(mensuel["mobile_login_success_pct"])
+mensuel["avg_wait_time_min"] = clean(mensuel["avg_wait_time_min"])
+
+segment["churn_rate_pct"] = clean(segment["churn_rate_pct"])
+segment["complaint_rate_pct"] = clean(segment["complaint_rate_pct"])
+
+channel["incident_rate_pct"] = clean(channel["incident_rate_pct"])
+channel["churn_rate_pct"] = clean(channel["churn_rate_pct"])
+
+# =========================
+# SIDEBAR
+# =========================
+
+st.sidebar.title("Filtres")
+
+selected_month = st.sidebar.selectbox("Choisir un mois", mensuel["month"])
+
+# =========================
+# DATA FILTER
+# =========================
+
+data = mensuel[mensuel["month"] == selected_month].iloc[0]
+
+# =========================
+# HEADER
+# =========================
+
+st.title(" NovaBank — Pilotage du churn")
+
+st.markdown(f"""
+###  Mois sélectionné : **{selected_month}**
+Dégradation de l'expérience digitale = hausse du churn
+""")
 
 st.markdown("---")
-
-# =========================
-# DATA
-# =========================
-
-mensuel = pd.DataFrame({
-    "month": ["Juil", "Août", "Sept", "Oct", "Nov", "Déc"],
-    "churn": [2.1, 2.3, 2.8, 3.6, 4.2, 4.0],
-    "nps": [41, 39, 34, 25, 19, 21],
-    "incidents": [18, 22, 37, 61, 74, 66],
-    "complaints": [3200, 3500, 4200, 5600, 6400, 6100]
-})
-
-segment = pd.DataFrame({
-    "segment": ["Nouveaux", "Jeunes actifs", "Standard", "Premium", "Seniors"],
-    "churn": [6.8, 4.5, 3.4, 1.9, 2.6]
-})
-
-channel = pd.DataFrame({
-    "channel": ["Mobile", "Web", "Call Center", "Agence", "Chatbot"],
-    "churn": [5.6, 3.1, 3.9, 1.8, 4.4]
-})
 
 # =========================
 # KPI
 # =========================
 
-st.markdown("###  Indicateurs clés")
+idx = mensuel[mensuel["month"] == selected_month].index[0]
+
+def delta(col):
+    if idx == 0:
+        return 0
+    return mensuel[col].iloc[idx] - mensuel[col].iloc[idx-1]
 
 col1, col2, col3, col4 = st.columns(4)
 
-col1.metric("Churn (%)", mensuel["churn"].iloc[-1])
-col2.metric("NPS", mensuel["nps"].iloc[-1])
-col3.metric("Incidents", mensuel["incidents"].iloc[-1])
-col4.metric("Plaintes", mensuel["complaints"].iloc[-1])
+col1.metric("Churn (%)", round(data["churn_rate_pct"],2), round(delta("churn_rate_pct"),2))
+col2.metric("NPS", int(data["nps"]), int(delta("nps")))
+col3.metric("Incidents", int(data["app_incidents_count"]), int(delta("app_incidents_count")))
+col4.metric("Plaintes", int(data["complaints_count"]), int(delta("complaints_count")))
 
 st.markdown("---")
 
 # =========================
-# GRAPHIQUES TEMPS
+# GRAPHIQUES (SÉPARÉS)
 # =========================
 
 col1, col2 = st.columns(2)
 
 with col1:
-    st.subheader(" Churn dans le temps")
+    st.subheader(" Évolution du churn")
     fig, ax = plt.subplots()
-    ax.plot(mensuel["month"], mensuel["churn"])
+    ax.plot(mensuel["month"], mensuel["churn_rate_pct"], marker="o")
     ax.set_ylabel("Churn (%)")
     st.pyplot(fig)
 
 with col2:
-    st.subheader(" NPS dans le temps")
+    st.subheader(" Évolution du NPS")
     fig, ax = plt.subplots()
-    ax.plot(mensuel["month"], mensuel["nps"])
+    ax.plot(mensuel["month"], mensuel["nps"], marker="o")
     ax.set_ylabel("NPS")
     st.pyplot(fig)
 
-st.markdown(" Le churn augmente fortement tandis que le NPS chute, confirmant une dégradation de l’expérience client.")
+st.markdown("---")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    st.subheader(" Incidents applicatifs")
+    fig, ax = plt.subplots()
+    ax.plot(mensuel["month"], mensuel["app_incidents_count"], marker="o")
+    ax.set_ylabel("Incidents")
+    st.pyplot(fig)
+
+with col2:
+    st.subheader(" Plaintes clients")
+    fig, ax = plt.subplots()
+    ax.plot(mensuel["month"], mensuel["complaints_count"], marker="o")
+    ax.set_ylabel("Plaintes")
+    st.pyplot(fig)
 
 st.markdown("---")
 
 # =========================
-# ANALYSE SEGMENT / CANAL
+# SEGMENTS / CANAUX
 # =========================
 
 col1, col2 = st.columns(2)
 
 with col1:
-    st.subheader(" Churn par segment")
+    st.subheader("Churn par segment")
     fig, ax = plt.subplots()
-    ax.bar(segment["segment"], segment["churn"])
-    ax.set_ylabel("Churn (%)")
+    ax.bar(segment["segment"], segment["churn_rate_pct"])
     plt.xticks(rotation=30)
     st.pyplot(fig)
 
 with col2:
     st.subheader(" Churn par canal")
     fig, ax = plt.subplots()
-    ax.bar(channel["channel"], channel["churn"])
-    ax.set_ylabel("Churn (%)")
+    ax.bar(channel["service_channel"], channel["churn_rate_pct"])
     plt.xticks(rotation=30)
     st.pyplot(fig)
-
-st.markdown(" Les nouveaux clients et le canal mobile sont les plus touchés, ce qui confirme un problème lié à l’expérience digitale.")
 
 st.markdown("---")
 
@@ -110,10 +148,10 @@ st.markdown("---")
 # RECOMMANDATIONS
 # =========================
 
-st.markdown("###  Recommandations")
+st.subheader("Actions prioritaires")
 
 st.write("""
-1. Stabiliser l’application mobile (incidents élevés, churn 5,6%)
-2. Réduire les frictions client (plaintes x2, NPS -22 pts)
-3. Améliorer l’onboarding des nouveaux clients (churn 6,8%)
+1. Stabiliser l’application mobile  
+2. Réduire les frictions client (incidents + support)  
+3. Améliorer l’onboarding des nouveaux clients  
 """)
