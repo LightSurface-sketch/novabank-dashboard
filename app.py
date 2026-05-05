@@ -12,7 +12,7 @@ st.set_page_config(page_title="NovaBank Dashboard", layout="wide")
 # LOAD DATA
 # =========================
 
-file = r"C:\Users\utilisateur\Desktop\novabank\novabank_etude_de_cas_donnees.xlsx"
+file = "novabank_etude_de_cas_donnees.xlsx"
 
 mensuel = pd.read_excel(file, sheet_name="mensuel")
 segment = pd.read_excel(file, sheet_name="segment")
